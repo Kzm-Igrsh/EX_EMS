@@ -7,16 +7,13 @@ const int PWM1_PIN = 32;
 // PWMチャンネル設定
 const int PWM0_CH = 0;
 const int PWM1_CH = 1;
-const int PWM_FREQ = 10000;  // 10kHz
+const int PWM0_FREQ = 50;    // 50Hz (Ctrl)
+const int PWM1_FREQ = 1000;  // 1000Hz (Chop)
 const int PWM_RES = 10;      // 10bit (0-1023)
 
 // スライダーの値（0-100）
 int sliderCtrl = 0;
 int sliderChop = 0;
-
-// タッチ状態
-bool touching = false;
-int lastY = 0;
 
 void drawUI() {
   M5.Display.clear(WHITE);
@@ -47,17 +44,15 @@ void drawUI() {
 }
 
 void updatePWM0() {
-  // 0-100を0-1023にマッピング
-  int duty = map(sliderCtrl, 0, 100, 0, 1023);
-  ledcWrite(PWM0_CH, duty);
-  Serial.printf("PWM0 (Pin%d): duty=%d (%d%%)\n", PWM0_PIN, duty, sliderCtrl);
+  // Pythonと同じ：duty値は0-100をそのまま使う
+  ledcWrite(PWM0_CH, sliderCtrl * 10.23);  // 0-100 を 0-1023 に変換
+  Serial.printf("PWM0 (Pin%d, %dHz): duty=%d\n", PWM0_PIN, PWM0_FREQ, sliderCtrl);
 }
 
 void updatePWM1() {
-  // 0-100を0-1023にマッピング
-  int duty = map(sliderChop, 0, 100, 0, 1023);
-  ledcWrite(PWM1_CH, duty);
-  Serial.printf("PWM1 (Pin%d): duty=%d (%d%%)\n", PWM1_PIN, duty, sliderChop);
+  // Pythonと同じ：duty値は0-100をそのまま使う
+  ledcWrite(PWM1_CH, sliderChop * 10.23);  // 0-100 を 0-1023 に変換
+  Serial.printf("PWM1 (Pin%d, %dHz): duty=%d\n", PWM1_PIN, PWM1_FREQ, sliderChop);
 }
 
 void handleTouch() {
@@ -92,17 +87,17 @@ void setup() {
   Serial.begin(115200);
   Serial.println("EMS Control UI");
   
-  // PWM初期化
-  ledcSetup(PWM0_CH, PWM_FREQ, PWM_RES);
+  // PWM初期化（異なる周波数）
+  ledcSetup(PWM0_CH, PWM0_FREQ, PWM_RES);
   ledcAttachPin(PWM0_PIN, PWM0_CH);
   ledcWrite(PWM0_CH, 0);
   
-  ledcSetup(PWM1_CH, PWM_FREQ, PWM_RES);
+  ledcSetup(PWM1_CH, PWM1_FREQ, PWM_RES);
   ledcAttachPin(PWM1_PIN, PWM1_CH);
   ledcWrite(PWM1_CH, 0);
   
-  Serial.printf("PWM0: Pin=%d, Freq=%dHz\n", PWM0_PIN, PWM_FREQ);
-  Serial.printf("PWM1: Pin=%d, Freq=%dHz\n", PWM1_PIN, PWM_FREQ);
+  Serial.printf("PWM0: Pin=%d, Freq=%dHz\n", PWM0_PIN, PWM0_FREQ);
+  Serial.printf("PWM1: Pin=%d, Freq=%dHz\n", PWM1_PIN, PWM1_FREQ);
   
   // 初期値設定
   sliderCtrl = 0;
