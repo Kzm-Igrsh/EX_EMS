@@ -9,11 +9,15 @@ const int PWM0_CH = 0;
 const int PWM1_CH = 1;
 const int PWM0_FREQ = 50;    // 50Hz (Ctrl)
 const int PWM1_FREQ = 1000;  // 1000Hz (Chop)
-const int PWM_RES = 10;      // 10bit (0-1023)
+const int PWM_RES = 8;       // 8bit (0-255) - MicroPythonのduty()と同じ範囲
 
 // スライダーの値（0-100）
 int sliderCtrl = 0;
 int sliderChop = 0;
+
+// 前回の値（UI更新判定用）
+int prevSliderCtrl = -1;
+int prevSliderChop = -1;
 
 void drawUI() {
   M5.Display.clear(WHITE);
@@ -44,15 +48,18 @@ void drawUI() {
 }
 
 void updatePWM0() {
-  // Pythonと同じ：duty値は0-100をそのまま使う
-  ledcWrite(PWM0_CH, sliderCtrl * 10.23);  // 0-100 を 0-1023 に変換
-  Serial.printf("PWM0 (Pin%d, %dHz): duty=%d\n", PWM0_PIN, PWM0_FREQ, sliderCtrl);
+  // MicroPythonのduty()は0-100の範囲（内部で0-1023に変換される）
+  // ESP32のledcWriteも同じように0-100をそのまま使用（8bit解像度なので0-255の範囲）
+  int dutyValue = map(sliderCtrl, 0, 100, 0, 255);
+  ledcWrite(PWM0_CH, dutyValue);
+  Serial.printf("PWM0 (Pin%d, %dHz): duty=%d (raw=%d)\n", PWM0_PIN, PWM0_FREQ, sliderCtrl, dutyValue);
 }
 
 void updatePWM1() {
-  // Pythonと同じ：duty値は0-100をそのまま使う
-  ledcWrite(PWM1_CH, sliderChop * 10.23);  // 0-100 を 0-1023 に変換
-  Serial.printf("PWM1 (Pin%d, %dHz): duty=%d\n", PWM1_PIN, PWM1_FREQ, sliderChop);
+  // MicroPythonのduty()は0-100の範囲（内部で0-1023に変換される）
+  int dutyValue = map(sliderChop, 0, 100, 0, 255);
+  ledcWrite(PWM1_CH, dutyValue);
+  Serial.printf("PWM1 (Pin%d, %dHz): duty=%d (raw=%d)\n", PWM1_PIN, PWM1_FREQ, sliderChop, dutyValue);
 }
 
 void handleTouch() {
@@ -61,20 +68,32 @@ void handleTouch() {
   if (t.isPressed() || t.isHolding()) {
     int x = t.x;
     int y = t.y;
+    bool needsRedraw = false;
     
     // Ctrl スライダー（Y: 50-70）
     if (y >= 50 && y <= 70 && x >= 10 && x <= 310) {
-      sliderCtrl = map(x, 10, 310, 0, 100);
-      sliderCtrl = constrain(sliderCtrl, 0, 100);
-      updatePWM0();
-      drawUI();
+      int newValue = map(x, 10, 310, 0, 100);
+      newValue = constrain(newValue, 0, 100);
+      if (newValue != sliderCtrl) {
+        sliderCtrl = newValue;
+        updatePWM0();
+        needsRedraw = true;
+      }
     }
     
     // Chop スライダー（Y: 170-190）
     if (y >= 170 && y <= 190 && x >= 10 && x <= 310) {
-      sliderChop = map(x, 10, 310, 0, 100);
-      sliderChop = constrain(sliderChop, 0, 100);
-      updatePWM1();
+      int newValue = map(x, 10, 310, 0, 100);
+      newValue = constrain(newValue, 0, 100);
+      if (newValue != sliderChop) {
+        sliderChop = newValue;
+        updatePWM1();
+        needsRedraw = true;
+      }
+    }
+    
+    // 値が変わった時だけUI更新
+    if (needsRedraw) {
       drawUI();
     }
   }
@@ -115,5 +134,5 @@ void loop() {
   // タッチ処理
   handleTouch();
   
-  delay(10);
+  delay(50);  // UI更新頻度を下げて点滅を防止
 }
